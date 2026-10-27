@@ -1,0 +1,236 @@
+Project musync_backend {
+  database_type: "PostgreSQL"
+  Note: "База данных для клиент-серверного приложения прослушивания музыки"
+}
+
+
+// =========================
+// Пользователи
+// =========================
+
+Table users {
+  id uuid [pk, note: "Идентификатор пользователя"]
+
+  username varchar [not null, unique, note: "Логин пользователя"]
+  password_hash text [not null, note: "Хэш пароля"]
+
+  display_name varchar [note: "Отображаемое имя"]
+  role varchar [not null, default: 'user', note: "Роль пользователя: user или admin"]
+
+  created_at timestamptz [not null, default: `now()`, note: "Дата создания"]
+  updated_at timestamptz [not null, default: `now()`, note: "Дата последнего изменения"]
+}
+
+
+// =========================
+// Устройства
+// =========================
+
+Table devices {
+  id uuid [pk, note: "Идентификатор устройства"]
+
+  user_id uuid [not null, note: "Пользователь, которому принадлежит устройство"]
+
+  name varchar [not null, note: "Название устройства"]
+  platform varchar [note: "Платформа устройства"]
+
+  refresh_token_hash text [note: "Хэш refresh-токена"]
+  last_seen_at timestamptz [note: "Время последней активности"]
+
+  created_at timestamptz [not null, default: `now()`, note: "Дата добавления устройства"]
+
+  indexes {
+    user_id
+  }
+}
+
+
+// =========================
+// Исполнители
+// =========================
+
+Table artists {
+  id uuid [pk, note: "Идентификатор исполнителя"]
+
+  name varchar [not null, note: "Имя исполнителя"]
+
+  created_at timestamptz [not null, default: `now()`, note: "Дата добавления"]
+  updated_at timestamptz [not null, default: `now()`, note: "Дата последнего изменения"]
+
+  indexes {
+    name
+  }
+}
+
+
+// =========================
+// Альбомы
+// =========================
+
+Table albums {
+  id uuid [pk, note: "Идентификатор альбома"]
+
+  title varchar [not null, note: "Название альбома"]
+  release_date date [note: "Дата выпуска"]
+  album_type varchar [note: "Тип релиза: album, single, EP, compilation"]
+
+  created_at timestamptz [not null, default: `now()`, note: "Дата добавления"]
+  updated_at timestamptz [not null, default: `now()`, note: "Дата последнего изменения"]
+
+  indexes {
+    title
+  }
+}
+
+
+// =========================
+// Исполнители альбомов
+// =========================
+
+Table album_artists {
+  album_id uuid [not null, note: "Альбом"]
+  artist_id uuid [not null, note: "Исполнитель"]
+
+  position int [not null, default: 0, note: "Порядок отображения исполнителей"]
+
+  indexes {
+    (album_id, artist_id) [pk]
+    artist_id
+  }
+}
+
+
+// =========================
+// Треки
+// =========================
+
+Table tracks {
+  id uuid [pk, note: "Идентификатор трека"]
+
+  album_id uuid [note: "Альбом, к которому относится трек"]
+
+  title varchar [not null, note: "Название трека"]
+
+  track_number int [note: "Номер трека в альбоме"]
+  disc_number int [note: "Номер диска"]
+
+  created_at timestamptz [not null, default: `now()`, note: "Дата добавления"]
+  updated_at timestamptz [not null, default: `now()`, note: "Дата последнего изменения"]
+
+  indexes {
+    album_id
+    (album_id, disc_number, track_number)
+  }
+}
+
+
+// =========================
+// Исполнители треков
+// =========================
+
+Table track_artists {
+  track_id uuid [not null, note: "Трек"]
+  artist_id uuid [not null, note: "Исполнитель"]
+
+  role varchar [not null, default: 'primary', note: "Роль исполнителя"]
+  position int [not null, default: 0, note: "Порядок отображения исполнителей"]
+
+  indexes {
+    (track_id, artist_id, role) [pk]
+    artist_id
+  }
+}
+
+
+// =========================
+// Медиафайлы
+// =========================
+
+Table media_files {
+  id uuid [pk, note: "Идентификатор аудиофайла"]
+
+  track_id uuid [not null, note: "Трек, которому принадлежит файл"]
+
+  object_key text [not null, unique, note: "Ключ файла в MinIO"]
+
+  codec varchar [note: "Аудиокодек"]
+  container varchar [note: "Контейнер файла"]
+
+  duration_ms bigint [note: "Продолжительность файла в миллисекундах"]
+  size_bytes bigint [note: "Размер файла в байтах"]
+
+  bitrate int [note: "Битрейт"]
+  sample_rate int [note: "Частота дискретизации"]
+  bit_depth int [note: "Разрядность аудио"]
+  channels int [note: "Количество каналов"]
+
+  created_at timestamptz [not null, default: `now()`, note: "Дата добавления файла"]
+
+  indexes {
+    track_id
+  }
+}
+
+
+// =========================
+// Плейлисты
+// =========================
+
+Table playlists {
+  id uuid [pk, note: "Идентификатор плейлиста"]
+
+  user_id uuid [not null, note: "Владелец плейлиста"]
+
+  name varchar [not null, note: "Название плейлиста"]
+
+  created_at timestamptz [not null, default: `now()`, note: "Дата создания"]
+  updated_at timestamptz [not null, default: `now()`, note: "Дата последнего изменения"]
+
+  indexes {
+    user_id
+  }
+}
+
+
+// =========================
+// Элементы плейлиста
+// =========================
+
+Table playlist_items {
+  id uuid [pk, note: "Идентификатор элемента плейлиста"]
+
+  playlist_id uuid [not null, note: "Плейлист"]
+  track_id uuid [not null, note: "Трек"]
+
+  position int [not null, note: "Позиция трека в плейлисте"]
+
+  created_at timestamptz [not null, default: `now()`, note: "Дата добавления трека"]
+
+  indexes {
+    playlist_id
+    track_id
+    (playlist_id, position) [unique]
+  }
+}
+
+
+// =========================
+// Связи
+// =========================
+
+Ref: devices.user_id > users.id
+
+Ref: album_artists.album_id > albums.id
+Ref: album_artists.artist_id > artists.id
+
+Ref: tracks.album_id > albums.id
+
+Ref: track_artists.track_id > tracks.id
+Ref: track_artists.artist_id > artists.id
+
+Ref: media_files.track_id > tracks.id
+
+Ref: playlists.user_id > users.id
+
+Ref: playlist_items.playlist_id > playlists.id
+Ref: playlist_items.track_id > tracks.id
